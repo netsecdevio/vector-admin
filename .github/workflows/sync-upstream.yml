@@ -1,0 +1,164 @@
+name: Sync Upstream Vector Admin
+
+on:
+  schedule:
+    # Run weekly on Sundays at 6 AM UTC
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if up to date'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout vector-admin
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/Mintplex-Labs/vector-admin.git || true
+          git fetch upstream master --tags
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          # Get the merge base between our main and upstream
+          MERGE_BASE=$(git merge-base HEAD upstream/master)
+          UPSTREAM_HEAD=$(git rev-parse upstream/master)
+
+          echo "merge_base=$MERGE_BASE" >> $GITHUB_OUTPUT
+          echo "upstream_head=$UPSTREAM_HEAD" >> $GITHUB_OUTPUT
+
+          if [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
+            echo "needs_sync=false" >> $GITHUB_OUTPUT
+            echo "Already up to date with upstream"
+          else
+            echo "needs_sync=true" >> $GITHUB_OUTPUT
+            BEHIND=$(git rev-list --count ${MERGE_BASE}..upstream/master)
+            echo "behind_count=$BEHIND" >> $GITHUB_OUTPUT
+            echo "Behind upstream by $BEHIND commits"
+          fi
+
+      - name: Merge upstream changes
+        if: steps.check.outputs.needs_sync == 'true' || inputs.force_sync == 'true'
+        id: merge
+        run: |
+          set +e
+
+          # Try to merge upstream/master
+          git merge upstream/master --no-edit -m "Merge upstream Mintplex-Labs/vector-admin"
+          MERGE_EXIT=$?
+
+          if [ $MERGE_EXIT -ne 0 ]; then
+            echo "merge_failed=true" >> $GITHUB_OUTPUT
+
+            # Get conflict info for issue
+            CONFLICTS=$(git diff --name-only --diff-filter=U)
+            echo "conflicts<<EOF" >> $GITHUB_OUTPUT
+            echo "$CONFLICTS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
+            git merge --abort 2>/dev/null || true
+          else
+            echo "merge_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push changes
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed != 'true'
+        run: |
+          git push origin master
+
+      - name: Create success summary
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed != 'true'
+        run: |
+          echo "## Upstream Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commits synced:** ${{ steps.check.outputs.behind_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Upstream HEAD:** \`${{ steps.check.outputs.upstream_head }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous merge base:** \`${{ steps.check.outputs.merge_base }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create conflict issue
+        if: steps.merge.outputs.merge_failed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflicts = `${{ steps.merge.outputs.conflicts }}`;
+            const behindCount = '${{ steps.check.outputs.behind_count }}';
+            const upstreamHead = '${{ steps.check.outputs.upstream_head }}';
+
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-sync-conflict'
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `Sync attempt failed again at ${new Date().toISOString()}\n\nUpstream HEAD: \`${upstreamHead}\`\nBehind by: ${behindCount} commits\n\nConflicting files:\n\`\`\`\n${conflicts}\n\`\`\``
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Upstream vector-admin sync failed - manual intervention required',
+                labels: ['upstream-sync-conflict'],
+                body: `## Upstream Sync Conflict
+
+The automated sync with [Mintplex-Labs/vector-admin](https://github.com/Mintplex-Labs/vector-admin) failed due to conflicts.
+
+**Details:**
+- Upstream HEAD: \`${upstreamHead}\`
+- Behind by: ${behindCount} commits
+
+**Conflicting files:**
+\`\`\`
+${conflicts}
+\`\`\`
+
+## Resolution Steps
+
+1. Clone the repo locally
+2. Add upstream: \`git remote add upstream https://github.com/Mintplex-Labs/vector-admin.git\`
+3. Fetch: \`git fetch upstream master\`
+4. Merge: \`git merge upstream/master\`
+5. Resolve conflicts manually
+6. Push: \`git push origin master\`
+7. Close this issue
+
+---
+*This issue was automatically created by the upstream sync workflow.*`
+              });
+            }
+
+      - name: Already up to date
+        if: steps.check.outputs.needs_sync == 'false' && inputs.force_sync != 'true'
+        run: |
+          echo "## Already Up to Date" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Vector Admin is already synced with the latest upstream." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Current merge base:** \`${{ steps.check.outputs.merge_base }}\`" >> $GITHUB_STEP_SUMMARY

@@ -1,7 +1,7 @@
 const prisma = require("../utils/prisma");
 
 const OrganizationConnection = {
-  supportedConnectors: ["chroma", "pinecone", "qdrant", "weaviate"],
+  supportedConnectors: ["chroma", "pinecone", "qdrant", "weaviate", "milvus", "clickhouse"],
   writable: ["type", "settings"],
 
   create: async function (

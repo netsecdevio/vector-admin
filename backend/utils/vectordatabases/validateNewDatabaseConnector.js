@@ -20,6 +20,12 @@ async function validateNewDatabaseConnector(organization, config) {
   } else if (type === "weaviate") {
     const { valid, message } = await validateWeaviate(settings);
     statusCheck = { valid, message };
+  } else if (type === "milvus") {
+    const { valid, message } = await validateMilvus(settings);
+    statusCheck = { valid, message };
+  } else if (type === "clickhouse") {
+    const { valid, message } = await validateClickHouse(settings);
+    statusCheck = { valid, message };
   }
 
   if (!statusCheck.valid)
@@ -119,10 +125,69 @@ async function validateWeaviate({ clusterUrl, apiKey }) {
   }
 }
 
+async function validateMilvus({ host, port, username, password, token }) {
+  const { MilvusClient } = require("@zilliz/milvus2-sdk-node");
+  try {
+    const address = port ? `${host}:${port}` : host;
+    const clientConfig = { address };
+
+    // Add authentication if provided
+    if (username && password) {
+      clientConfig.username = username;
+      clientConfig.password = password;
+    }
+
+    // Add token auth if provided (for Zilliz Cloud)
+    if (token) {
+      clientConfig.token = token;
+    }
+
+    const client = new MilvusClient(clientConfig);
+    const health = await client.checkHealth();
+
+    if (!health.isHealthy)
+      throw new Error("Milvus::Cluster is not healthy.");
+
+    return { valid: true, message: null };
+  } catch (e) {
+    return {
+      valid: false,
+      message: e.message || "Could not connect to Milvus instance.",
+    };
+  }
+}
+
+async function validateClickHouse({ host, port, username, password, database }) {
+  const { createClient } = require("@clickhouse/client");
+  try {
+    const client = createClient({
+      url: `http://${host}:${port || 8123}`,
+      username: username || "default",
+      password: password || "",
+      database: database || "default",
+    });
+
+    const result = await client.ping();
+    await client.close();
+
+    if (!result.success)
+      throw new Error("ClickHouse::Ping failed.");
+
+    return { valid: true, message: null };
+  } catch (e) {
+    return {
+      valid: false,
+      message: e.message || "Could not connect to ClickHouse instance.",
+    };
+  }
+}
+
 module.exports = {
   validateNewDatabaseConnector,
   validateChroma,
   validatePinecone,
   validateQDrant,
   validateWeaviate,
+  validateMilvus,
+  validateClickHouse,
 };

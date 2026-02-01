@@ -26,6 +26,16 @@ function selectConnector(organizationConnector) {
     return new Weaviate(organizationConnector);
   }
 
+  if (organizationConnector.type === "milvus") {
+    const { Milvus } = require("./milvus");
+    return new Milvus(organizationConnector);
+  }
+
+  if (organizationConnector.type === "clickhouse") {
+    const { ClickHouse } = require("./clickhouse");
+    return new ClickHouse(organizationConnector);
+  }
+
   throw new Error(
     "Could not find supported connector for vector database.",
     type

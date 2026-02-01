@@ -4,6 +4,8 @@ import ChromaLogo from '@/images/vectordbs/chroma.png';
 import PineconeLogoInverted from '@/images/vectordbs/pinecone-inverted.png';
 import qDrantLogo from '@/images/vectordbs/qdrant.png';
 import WeaviateLogo from '@/images/vectordbs/weaviate.png';
+import MilvusLogo from '@/images/vectordbs/milvus.png';
+import ClickHouseLogo from '@/images/vectordbs/clickhouse.png';
 import { APP_NAME } from '@/utils/constants';
 import Organization from '@/models/organization';
 const NewConnectorModal = memo(
@@ -211,6 +213,72 @@ const NewConnectorModal = memo(
                       <div className="flex w-full flex-col gap-y-1 text-sm">
                         <p className="text-xs text-white/80">weaviate.io</p>
                         Open-source & hosted vector database.
+                      </div>
+                    </div>
+                  </label>
+                </li>
+                <li onClick={() => setType('milvus')} className="w-[250px]">
+                  <input
+                    name="type"
+                    type="checkbox"
+                    value="milvus"
+                    className="peer hidden"
+                    checked={type === 'milvus'}
+                    formNoValidate={true}
+                  />
+                  <label
+                    style={{
+                      background:
+                        type === 'milvus'
+                          ? `linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 100%)`
+                          : `linear-gradient(180deg, #313236 0%, rgba(63, 65, 70, 0.00) 100%)`,
+                    }}
+                    className="inline-flex h-full w-full cursor-pointer items-center justify-between rounded-xl border-2 border-transparent p-5 text-white shadow-md transition-all duration-300 hover:border-sky-400 hover:shadow-lg peer-checked:border-sky-400"
+                  >
+                    <div className="block">
+                      <img
+                        src={MilvusLogo}
+                        className="mb-2 h-10 w-10 rounded-full"
+                        alt="milvus logo"
+                      />
+                      <div className="w-full text-lg font-semibold">Milvus</div>
+                      <div className="flex w-full flex-col gap-y-1 text-sm">
+                        <p className="text-xs text-white/80">milvus.io</p>
+                        Cloud-native vector database for AI.
+                      </div>
+                    </div>
+                  </label>
+                </li>
+                <li onClick={() => setType('clickhouse')} className="w-[250px]">
+                  <input
+                    name="type"
+                    type="checkbox"
+                    value="clickhouse"
+                    className="peer hidden"
+                    checked={type === 'clickhouse'}
+                    formNoValidate={true}
+                  />
+                  <label
+                    style={{
+                      background:
+                        type === 'clickhouse'
+                          ? `linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 100%)`
+                          : `linear-gradient(180deg, #313236 0%, rgba(63, 65, 70, 0.00) 100%)`,
+                    }}
+                    className="inline-flex h-full w-full cursor-pointer items-center justify-between rounded-xl border-2 border-transparent p-5 text-white shadow-md transition-all duration-300 hover:border-sky-400 hover:shadow-lg peer-checked:border-sky-400"
+                  >
+                    <div className="block">
+                      <img
+                        src={ClickHouseLogo}
+                        className="mb-2 h-10 w-10 rounded-full"
+                        alt="clickhouse logo"
+                      />
+                      <div className="w-full text-lg font-semibold">
+                        ClickHouse
+                      </div>
+                      <div className="flex w-full flex-col gap-y-1 text-sm">
+                        <p className="text-xs text-white/80">clickhouse.com</p>
+                        Fast OLAP database for analytics.
                       </div>
                     </div>
                   </label>
@@ -435,6 +503,229 @@ const NewConnectorModal = memo(
                       type="password"
                       className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
                       placeholder="ee1051-xxxx-xxxx-xxxx"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {type === 'milvus' && (
+                <div className="mx-6 my-4 flex flex-col gap-y-6">
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::host"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Milvus Host
+                      </label>
+                      <p className="text-sm text-white/60">
+                        The hostname or IP address of your Milvus instance.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::host"
+                      autoComplete="off"
+                      type="text"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="localhost"
+                      required={true}
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::port"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Port
+                      </label>
+                      <p className="text-sm text-white/60">
+                        The port your Milvus instance is running on (default:
+                        19530).
+                      </p>
+                    </div>
+                    <input
+                      name="settings::port"
+                      autoComplete="off"
+                      type="number"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="19530"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::username"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Username
+                      </label>
+                      <p className="text-sm text-white/60">
+                        (optional) Username for authentication.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::username"
+                      autoComplete="off"
+                      type="text"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="root"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::password"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Password
+                      </label>
+                      <p className="text-sm text-white/60">
+                        (optional) Password for authentication.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::password"
+                      autoComplete="off"
+                      type="password"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="••••••••"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::token"
+                        className="block text-sm font-medium text-white"
+                      >
+                        API Token
+                      </label>
+                      <p className="text-sm text-white/60">
+                        (optional) For Zilliz Cloud, use an API token instead of
+                        username/password.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::token"
+                      autoComplete="off"
+                      type="password"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="your-zilliz-api-token"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {type === 'clickhouse' && (
+                <div className="mx-6 my-4 flex flex-col gap-y-6">
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::host"
+                        className="block text-sm font-medium text-white"
+                      >
+                        ClickHouse Host
+                      </label>
+                      <p className="text-sm text-white/60">
+                        The hostname or IP address of your ClickHouse instance.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::host"
+                      autoComplete="off"
+                      type="text"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="localhost"
+                      required={true}
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::port"
+                        className="block text-sm font-medium text-white"
+                      >
+                        HTTP Port
+                      </label>
+                      <p className="text-sm text-white/60">
+                        The HTTP port your ClickHouse instance is running on
+                        (default: 8123).
+                      </p>
+                    </div>
+                    <input
+                      name="settings::port"
+                      autoComplete="off"
+                      type="number"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="8123"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::database"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Database
+                      </label>
+                      <p className="text-sm text-white/60">
+                        The database to connect to (default: default).
+                      </p>
+                    </div>
+                    <input
+                      name="settings::database"
+                      autoComplete="off"
+                      type="text"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="silas"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::username"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Username
+                      </label>
+                      <p className="text-sm text-white/60">
+                        (optional) Username for authentication.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::username"
+                      autoComplete="off"
+                      type="text"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="default"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="mb-2 flex flex-col gap-y-1">
+                      <label
+                        htmlFor="settings::password"
+                        className="block text-sm font-medium text-white"
+                      >
+                        Password
+                      </label>
+                      <p className="text-sm text-white/60">
+                        (optional) Password for authentication.
+                      </p>
+                    </div>
+                    <input
+                      name="settings::password"
+                      autoComplete="off"
+                      type="password"
+                      className="block h-11 w-full min-w-[350px] items-center justify-start gap-2.5 rounded-lg bg-white bg-opacity-10 p-2.5 text-sm font-medium leading-tight text-white placeholder:text-opacity-60"
+                      placeholder="••••••••"
                     />
                   </div>
                 </div>
