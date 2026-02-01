@@ -6,6 +6,7 @@ const { Telemetry } = require("../models/telemetry");
 const { User } = require("../models/user");
 const { reqBody, makeJWT } = require("../utils/http");
 const bcrypt = require("bcrypt");
+const logger = require("../utils/logger");
 
 function authenticationEndpoints(app) {
   if (!app) return;
@@ -14,16 +15,29 @@ function authenticationEndpoints(app) {
     try {
       const completeSetup = (await User.count({ role: "admin" })) > 0;
       if (completeSetup) {
+        logger.debug("Auto-onboard check - setup complete", {
+          attributes: { action: "auto_onboard", result: "already_complete" },
+        });
         response.status(200).json({ completed: true });
         return;
       }
 
       const onboardingUser = await User.get({ role: "root" });
       if (!onboardingUser) {
+        logger.debug("Auto-onboard check - no root user", {
+          attributes: { action: "auto_onboard", result: "no_root_user" },
+        });
         response.status(200).json({ completed: true });
         return;
       }
 
+      logger.info("Auto-onboard successful", {
+        attributes: {
+          action: "auto_onboard",
+          result: "success",
+          user_id: onboardingUser.id,
+        },
+      });
       await Telemetry.sendTelemetry("onboarding_complete"); // Have to send here since we have no other hooks.
       response.status(200).json({
         valid: true,
@@ -35,6 +49,9 @@ function authenticationEndpoints(app) {
         message: null,
       });
     } catch (e) {
+      logger.error("Auto-onboard error", {
+        attributes: { action: "auto_onboard", error: e.message },
+      });
       console.log(e.message, e);
       response.sendStatus(500).end();
     }
@@ -68,6 +85,9 @@ function authenticationEndpoints(app) {
 
       const existingUser = await User.get({ email: email });
       if (!existingUser) {
+        logger.warn("Login failed - user not found", {
+          attributes: { email, reason: "user_not_found" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -78,6 +98,9 @@ function authenticationEndpoints(app) {
       }
 
       if (!bcrypt.compareSync(password, existingUser.password)) {
+        logger.warn("Login failed - invalid password", {
+          attributes: { email, reason: "invalid_password" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -87,6 +110,9 @@ function authenticationEndpoints(app) {
         return;
       }
 
+      logger.info("Login successful", {
+        attributes: { email, user_id: existingUser.id },
+      });
       await Telemetry.sendTelemetry("login_event");
       response.status(200).json({
         valid: true,
@@ -99,6 +125,7 @@ function authenticationEndpoints(app) {
       });
       return;
     } catch (e) {
+      logger.error("Login error", { attributes: { error: e.message } });
       console.log(e.message, e);
       response.sendStatus(500).end();
     }
@@ -108,6 +135,9 @@ function authenticationEndpoints(app) {
     try {
       const { email, password } = reqBody(request);
       if (!email || !password) {
+        logger.warn("Account creation failed - missing credentials", {
+          attributes: { action: "create_account", reason: "missing_credentials" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -119,6 +149,9 @@ function authenticationEndpoints(app) {
 
       const adminCount = await User.count({ role: "admin" });
       if (adminCount === 0) {
+        logger.warn("Account creation blocked - system not setup", {
+          attributes: { action: "create_account", email, reason: "system_not_setup" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -131,6 +164,9 @@ function authenticationEndpoints(app) {
 
       const existingUser = await User.get({ email });
       if (!!existingUser) {
+        logger.warn("Account creation failed - email exists", {
+          attributes: { action: "create_account", email, reason: "email_exists" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -148,6 +184,9 @@ function authenticationEndpoints(app) {
         allowingAccounts.value !== null &&
         allowingAccounts.value === "false"
       ) {
+        logger.warn("Account creation blocked - disabled by admin", {
+          attributes: { action: "create_account", email, reason: "creation_disabled" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -163,6 +202,14 @@ function authenticationEndpoints(app) {
       if (domainRestriction && domainRestriction.value) {
         const emailDomain = email.substring(email.lastIndexOf("@") + 1);
         if (emailDomain !== domainRestriction.value) {
+          logger.warn("Account creation blocked - domain mismatch", {
+            attributes: {
+              action: "create_account",
+              email,
+              reason: "domain_restricted",
+              allowed_domain: domainRestriction.value,
+            },
+          });
           response.status(200).json({
             user: null,
             valid: false,
@@ -175,6 +222,9 @@ function authenticationEndpoints(app) {
 
       const { user, message } = await User.create({ email, password });
       if (!user) {
+        logger.error("Account creation failed", {
+          attributes: { action: "create_account", email, reason: "creation_error", error: message },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -184,6 +234,9 @@ function authenticationEndpoints(app) {
         return;
       }
 
+      logger.info("Account created successfully", {
+        attributes: { action: "create_account", email, user_id: user.id },
+      });
       await User.addToAllOrgs(user.id);
       await Telemetry.sendTelemetry("login_event");
       response.status(200).json({
@@ -194,6 +247,9 @@ function authenticationEndpoints(app) {
       });
       return;
     } catch (e) {
+      logger.error("Account creation error", {
+        attributes: { action: "create_account", error: e.message },
+      });
       console.log(e.message, e);
       response.sendStatus(500).end();
     }
@@ -203,6 +259,9 @@ function authenticationEndpoints(app) {
     try {
       const { email, password } = reqBody(request);
       if (!email || !password) {
+        logger.warn("Transfer root failed - missing credentials", {
+          attributes: { action: "transfer_root", reason: "missing_credentials" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -214,6 +273,9 @@ function authenticationEndpoints(app) {
 
       const adminCount = await User.count({ role: "admin" });
       if (adminCount > 0) {
+        logger.warn("Transfer root blocked - already configured", {
+          attributes: { action: "transfer_root", email, reason: "already_configured" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -226,6 +288,9 @@ function authenticationEndpoints(app) {
 
       const existingUser = await User.get({ email });
       if (!!existingUser) {
+        logger.warn("Transfer root failed - email exists", {
+          attributes: { action: "transfer_root", email, reason: "email_exists" },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -241,6 +306,9 @@ function authenticationEndpoints(app) {
         role: "admin",
       });
       if (!user) {
+        logger.error("Transfer root failed - user creation error", {
+          attributes: { action: "transfer_root", email, reason: "creation_error", error: message },
+        });
         response.status(200).json({
           user: null,
           valid: false,
@@ -250,6 +318,9 @@ function authenticationEndpoints(app) {
         return;
       }
 
+      logger.info("Transfer root successful - admin created", {
+        attributes: { action: "transfer_root", email, user_id: user.id, role: "admin" },
+      });
       response.status(200).json({
         user,
         valid: true,
@@ -258,6 +329,9 @@ function authenticationEndpoints(app) {
       });
       return;
     } catch (e) {
+      logger.error("Transfer root error", {
+        attributes: { action: "transfer_root", error: e.message },
+      });
       console.log(e.message, e);
       response.sendStatus(500).end();
     }

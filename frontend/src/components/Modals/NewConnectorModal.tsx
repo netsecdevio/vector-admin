@@ -76,14 +76,15 @@ const NewConnectorModal = memo(
               functionality.
             </p>
           </div>
-          {loading ? (
-            <div className="px-6.5">
-              <div className="mb-4.5 flex w-full justify-center">
-                <PreLoader />
+          <form onSubmit={handleSubmit}>
+            {loading && (
+              <div className="px-6.5">
+                <div className="mb-4.5 flex w-full justify-center">
+                  <PreLoader />
+                </div>
               </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
+            )}
+              <div className={loading ? 'hidden' : ''}>
               <ul className="mx-6 flex w-full flex-wrap gap-6">
                 <li onClick={() => setType('chroma')} className="w-[250px]">
                   <input
@@ -730,6 +731,7 @@ const NewConnectorModal = memo(
                   </div>
                 </div>
               )}
+              </div>
 
               <div className="w-full px-6">
                 {error && (
@@ -745,14 +747,14 @@ const NewConnectorModal = memo(
                 <div className="flex items-center justify-center">
                   <button
                     type="submit"
-                    className="mb-4 mt-4 h-10 w-full items-center rounded-lg bg-white p-2 text-center text-sm font-bold text-neutral-700 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-opacity-90"
+                    disabled={loading}
+                    className={`mb-4 mt-4 h-10 w-full items-center rounded-lg p-2 text-center text-sm font-bold shadow-lg transition-all duration-300 ${loading ? 'bg-gray-400 text-gray-600 cursor-not-allowed' : 'bg-white text-neutral-700 hover:scale-105 hover:bg-opacity-90'}`}
                   >
-                    Connect to Vector Database
+                    {loading ? 'Connecting...' : 'Connect to Vector Database'}
                   </button>
                 </div>
               </div>
             </form>
-          )}
         </div>
       </dialog>
     );

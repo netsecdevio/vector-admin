@@ -43,7 +43,8 @@
     "sqlite3": "^5.1.6",
     "uuid": "^9.0.0",
     "uuid-apikey": "^1.5.3",
-    "weaviate-ts-client": "^1.5.0"
+    "weaviate-ts-client": "^1.5.0",
+    "nats": "^2.18.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22",

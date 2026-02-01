@@ -35,6 +35,10 @@ services:
       - "8288:8288"
     env_file:
       - .env
+    environment:
+      - NATS_URL=nats://host.docker.internal:4222
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - vector-admin
     depends_on:

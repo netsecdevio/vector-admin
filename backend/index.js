@@ -12,7 +12,21 @@ const { authenticationEndpoints } = require("./endpoints/auth");
 const { v1Endpoints } = require("./endpoints/v1");
 const { setupDebugger } = require("./utils/debug");
 const { Telemetry } = require("./models/telemetry");
+const logger = require("./utils/logger");
 const app = express();
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    // Only log API requests, skip static assets
+    if (req.path.startsWith("/api")) {
+      logger.request(req.method, req.path, res.statusCode, duration);
+    }
+  });
+  next();
+});
 const apiRouter = express.Router();
 
 app.use(cors({ origin: true }));
@@ -59,19 +73,32 @@ app.all("*", function (_, response) {
 
 app
   .listen(process.env.SERVER_PORT || 3001, async () => {
+    // Initialize NATS logger
+    await logger.init();
+
     await systemInit();
     setupDebugger(apiRouter);
+
+    logger.info("Server started", {
+      attributes: {
+        port: process.env.SERVER_PORT || 3001,
+        node_env: process.env.NODE_ENV,
+      },
+    });
     console.log(
       `Backend server listening on port ${process.env.SERVER_PORT || 3001}`
     );
   })
   .on("error", function (err) {
-    process.once("SIGUSR2", function () {
+    logger.error("Server error", { attributes: { error: err.message } });
+    process.once("SIGUSR2", async function () {
       Telemetry.flush();
+      await logger.close();
       process.kill(process.pid, "SIGUSR2");
     });
-    process.on("SIGINT", function () {
+    process.on("SIGINT", async function () {
       Telemetry.flush();
+      await logger.close();
       process.kill(process.pid, "SIGINT");
     });
   });

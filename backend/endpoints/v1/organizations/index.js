@@ -49,6 +49,14 @@ function organizationEndpoints(app) {
           user.id
         );
         if (!organization) {
+          logger.error("Organization creation failed", {
+            attributes: {
+              action: "org_create",
+              org_name: orgName,
+              user_id: user.id,
+              error: message,
+            },
+          });
           response.status(200).json({
             organization: null,
             error: message ?? "Failed to create organization.",
@@ -56,8 +64,20 @@ function organizationEndpoints(app) {
           return;
         }
 
+        logger.info("Organization created", {
+          attributes: {
+            action: "org_create",
+            organization_id: organization.id,
+            organization_slug: organization.slug,
+            org_name: orgName,
+            user_id: user.id,
+          },
+        });
         response.status(200).json({ organization, error: null });
       } catch (e) {
+        logger.error("Organization creation error", {
+          attributes: { action: "org_create", error: e.message },
+        });
         console.log(e.message, e);
         response.sendStatus(500).end();
       }
@@ -276,6 +296,7 @@ function organizationEndpoints(app) {
           return;
         }
 
+        // validateNewDatabaseConnector handles logging internally
         const result = await validateNewDatabaseConnector(organization, config);
         response.status(200).json(result);
       } catch (e) {

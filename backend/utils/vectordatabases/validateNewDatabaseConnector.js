@@ -1,11 +1,16 @@
 const {
   OrganizationConnection,
 } = require("../../models/organizationConnection");
+const logger = require("../logger");
 
 async function validateNewDatabaseConnector(organization, config) {
   const { type, settings } = config;
-  if (!OrganizationConnection.supportedConnectors.includes(type))
+  const startTime = Date.now();
+
+  if (!OrganizationConnection.supportedConnectors.includes(type)) {
+    logger.connector(type, "validate", false, { error: "Unsupported type" });
     return { connector: null, error: "Unsupported vector database type." };
+  }
 
   var statusCheck = { valid: false, message: null };
   if (type === "chroma") {
@@ -28,14 +33,29 @@ async function validateNewDatabaseConnector(organization, config) {
     statusCheck = { valid, message };
   }
 
-  if (!statusCheck.valid)
+  const duration = Date.now() - startTime;
+
+  if (!statusCheck.valid) {
+    logger.connector(type, "validate", false, {
+      error: statusCheck.message,
+      duration_ms: duration,
+    });
     return { connector: null, error: statusCheck.message };
+  }
+
+  logger.connector(type, "validate", true, { duration_ms: duration });
 
   const connector = await OrganizationConnection.create(
     organization.id,
     type,
     settings
   );
+
+  logger.connector(type, "create", true, {
+    connector_id: connector?.id,
+    organization_id: organization.id,
+  });
+
   return { connector, error: null };
 }
 
@@ -161,7 +181,7 @@ async function validateClickHouse({ host, port, username, password, database }) 
   const { createClient } = require("@clickhouse/client");
   try {
     const client = createClient({
-      url: `http://${host}:${port || 8123}`,
+      host: `http://${host}:${port || 8123}`,
       username: username || "default",
       password: password || "",
       database: database || "default",

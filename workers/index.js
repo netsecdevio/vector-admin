@@ -3,7 +3,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { serve } = require("inngest/express");
-const { InngestClient } = require("./utils/inngest");
+const {
+  InngestClient,
+  initWorkerLogging,
+  closeWorkerLogging,
+  natsLogger,
+} = require("./utils/inngest");
 const { syncChromaInstance } = require("./functions/syncChroma");
 const { setupFunctions } = require("./utils/boot");
 const { reqBody } = require("./utils/http");
@@ -114,40 +119,84 @@ app.use(
   ], { landingPage: true })
 );
 
-app.get('/jobs', async function (_, response) {
-  const completed = (await Queue.where({ status: Queue.status.complete })).length;
+app.get("/jobs", async function (_, response) {
+  const completed = (await Queue.where({ status: Queue.status.complete }))
+    .length;
   const pending = (await Queue.where({ status: Queue.status.pending })).length;
   const failed = (await Queue.where({ status: Queue.status.failed })).length;
-  response.status(200).send(`${completed + pending + failed} jobs processed.\n${completed} completed.\n${pending} pending.\n${failed} failed.`);
-})
 
-app.post('/send', async function (request, response) {
+  natsLogger.debug("Jobs status queried", {
+    attributes: { completed, pending, failed, total: completed + pending + failed },
+  });
+
+  response
+    .status(200)
+    .send(
+      `${completed + pending + failed} jobs processed.\n${completed} completed.\n${pending} pending.\n${failed} failed.`
+    );
+});
+
+app.post("/send", async function (request, response) {
   try {
-    const body = reqBody(request)
-    InngestClient.setEventKey(process.env.INNGEST_EVENT_KEY || 'background_workers')
+    const body = reqBody(request);
+    InngestClient.setEventKey(
+      process.env.INNGEST_EVENT_KEY || "background_workers"
+    );
+
+    natsLogger.info("Job event sent", {
+      attributes: {
+        event_name: body.name || "unknown",
+        event_data: JSON.stringify(body.data || {}).substring(0, 200),
+      },
+    });
+
     await InngestClient.send(body);
     response.sendStatus(200).end();
   } catch (e) {
-    console.error(e)
+    natsLogger.error("Job event send failed", {
+      attributes: { error: e.message },
+    });
+    console.error(e);
     response.sendStatus(500).end();
   }
-})
+});
 
 app
   .listen(process.env.WORKERS_PORT || 3355, async () => {
+    // Initialize NATS logger for job logging
+    await initWorkerLogging();
+
     await setupFunctions();
+
+    natsLogger.info("Workers server started", {
+      attributes: {
+        port: process.env.WORKERS_PORT || 3355,
+        node_env: process.env.NODE_ENV,
+      },
+    });
     console.log(
       `Background workers listening on port ${process.env.WORKERS_PORT || 3355}`
     );
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`\x1b[34m[Developer Notice]\x1b[0m Run npx inngest-cli@latest dev -u http://127.0.0.1:${process.env.WORKERS_PORT || 3355}/background-workers to debug events for workers or visit http://127.0.0.1:${process.env.WORKERS_PORT || 3355}/background-workers`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `\x1b[34m[Developer Notice]\x1b[0m Run npx inngest-cli@latest dev -u http://127.0.0.1:${
+          process.env.WORKERS_PORT || 3355
+        }/background-workers to debug events for workers or visit http://127.0.0.1:${
+          process.env.WORKERS_PORT || 3355
+        }/background-workers`
+      );
     }
   })
   .on("error", function (err) {
-    process.once("SIGUSR2", function () {
+    natsLogger.error("Workers server error", {
+      attributes: { error: err.message },
+    });
+    process.once("SIGUSR2", async function () {
+      await closeWorkerLogging();
       process.kill(process.pid, "SIGUSR2");
     });
-    process.on("SIGINT", function () {
+    process.on("SIGINT", async function () {
+      await closeWorkerLogging();
       process.kill(process.pid, "SIGINT");
     });
   });

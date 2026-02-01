@@ -23,7 +23,7 @@ class ClickHouse {
     const { settings } = this.config;
 
     const client = createClient({
-      url: `http://${settings.host}:${settings.port || 8123}`,
+      host: `http://${settings.host}:${settings.port || 8123}`,
       username: settings.username || "default",
       password: settings.password || "",
       database: settings.database || "default",
